@@ -88,14 +88,12 @@ type IcecastStatusSource struct {
 	ServerType         string      `json:"server_type"`
 	SlowListeners      int         `json:"slow_listeners"`
 	StreamStartIso8601 ISO8601     `json:"stream_start_iso8601"`
-	StreamStart        IcecastTime `json:"stream_start"`
 }
 
 // JSON structure if zero or multiple streams active
 type IcecastStatus struct {
 	Icestats struct {
 		ServerStartIso8601 ISO8601               `json:"server_start_iso8601"`
-		ServerStart        IcecastTime           `json:"server_start"`
 		Source             []IcecastStatusSource `json:"source,omitifempty"`
 	} `json:"icestats"`
 }
@@ -104,7 +102,6 @@ type IcecastStatus struct {
 type IcecastStatusSingle struct {
 	Icestats struct {
 		ServerStartIso8601 ISO8601             `json:"server_start_iso8601"`
-		ServerStart        IcecastTime         `json:"server_start"`
 		Source             IcecastStatusSource `json:"source"`
 	} `json:"icestats"`
 }
@@ -204,16 +201,11 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	e.streamStart.Reset()
 
 	if s := <-status; s != nil {
-		e.serverStart.Set(float64(s.Icestats.ServerStart.Time().Unix()))
+		e.serverStart.Set(float64(s.Icestats.ServerStartIso8601.Time().Unix()))
 		for _, source := range s.Icestats.Source {
 			e.listeners.WithLabelValues(source.Listenurl, source.ServerType).Set(float64(source.Listeners))
 			e.slowListeners.WithLabelValues(source.Listenurl, source.ServerType).Set(float64(source.SlowListeners))
-			switch timeFormat {
-			case iso8601:
-				e.streamStart.WithLabelValues(source.Listenurl, source.ServerType).Set(float64(source.StreamStartIso8601.Time().Unix()))
-			default:
-				e.streamStart.WithLabelValues(source.Listenurl, source.ServerType).Set(float64(source.StreamStart.Time().Unix()))
-			}
+			e.streamStart.WithLabelValues(source.Listenurl, source.ServerType).Set(float64(source.StreamStartIso8601.Time().Unix()))
 		}
 	}
 
@@ -266,7 +258,7 @@ func (e *Exporter) scrape(status chan<- *IcecastStatus) {
 		}
 
 		// Copy over to staus object
-		s.Icestats.ServerStart = s2.Icestats.ServerStart
+		s.Icestats.ServerStartIso8601 = s2.Icestats.ServerStartIso8601
 		s.Icestats.Source = []IcecastStatusSource{s2.Icestats.Source}
 	}
 
